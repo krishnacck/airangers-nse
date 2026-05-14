@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AIRangers - Nifty 50 Options Paper Trading</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="logo">
+        <span class="logo-icon">⚡</span>
+        <h1>AIRangers</h1>
+      </div>
+      <nav>
+        <a href="#" class="nav-item active" data-page="dashboard">
+          <span class="nav-icon">📊</span> Dashboard
+        </a>
+        <a href="#" class="nav-item" data-page="market">
+          <span class="nav-icon">📈</span> Market Data
+        </a>
+        <a href="#" class="nav-item" data-page="trades">
+          <span class="nav-icon">💹</span> Trades
+        </a>
+        <a href="#" class="nav-item" data-page="positions">
+          <span class="nav-icon">📋</span> Positions
+        </a>
+        <a href="#" class="nav-item" data-page="wallet">
+          <span class="nav-icon">💰</span> Wallet
+        </a>
+        <a href="#" class="nav-item" data-page="analytics">
+          <span class="nav-icon">🎯</span> Analytics
+        </a>
+        <a href="#" class="nav-item" data-page="scheduler">
+          <span class="nav-icon">🤖</span> Auto-Trader
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div id="auth-status" class="auth-badge offline">● Simulated Mode</div>
+        <button id="login-btn" class="btn btn-primary btn-sm">Connect</button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Header -->
+      <header class="header">
+        <div class="header-left">
+          <h2 id="page-title">Dashboard</h2>
+          <span class="subtitle">Real-time Nifty 50 Options Paper Trading</span>
+        </div>
+        <div class="header-right">
+          <div id="nifty-ticker" class="ticker">
+            <span class="ticker-label">NIFTY 50</span>
+            <span id="nifty-ltp" class="ticker-value">--</span>
+            <span id="nifty-change" class="ticker-change">--</span>
+          </div>
+          <button id="refresh-btn" class="btn btn-outline btn-sm">↻ Refresh</button>
+          <button id="reset-all-btn" class="btn btn-danger btn-sm">🗑 Reset All</button>
+        </div>
+      </header>
+
+      <!-- Pages -->
+      <div id="page-dashboard" class="page active">
+        <!-- Wallet Summary Bar -->
+        <div class="wallet-bar">
+          <div class="wallet-item">
+            <span class="wallet-label">Balance</span>
+            <span class="wallet-value" id="dash-balance">₹1,00,000</span>
+          </div>
+          <div class="wallet-item">
+            <span class="wallet-label">Available</span>
+            <span class="wallet-value" id="dash-available">₹1,00,000</span>
+          </div>
+          <div class="wallet-item">
+            <span class="wallet-label">Margin Used</span>
+            <span class="wallet-value" id="dash-margin">₹0</span>
+          </div>
+          <div class="wallet-item">
+            <span class="wallet-label">Net Worth</span>
+            <span class="wallet-value" id="dash-networth">₹1,00,000</span>
+          </div>
+        </div>
+
+        <!-- Momentum Card -->
+        <div class="card-grid">
+          <div class="card momentum-card">
+            <h3>Market Momentum</h3>
+            <div id="momentum-display" class="momentum-display">
+              <div class="momentum-score" id="momentum-score">0</div>
+              <div class="momentum-direction" id="momentum-direction">Analyzing...</div>
+              <div class="momentum-bar">
+                <div class="bar-bearish" id="bar-bearish"></div>
+                <div class="bar-neutral" id="bar-neutral"></div>
+                <div class="bar-bullish" id="bar-bullish"></div>
+              </div>
+              <div class="momentum-labels">
+                <span id="bearish-count">0 Bearish</span>
+                <span id="neutral-count">0 Neutral</span>
+                <span id="bullish-count">0 Bullish</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card signal-card">
+            <h3>Trade Signal</h3>
+            <div id="signal-display">
+              <div class="signal-type" id="signal-type">--</div>
+              <div class="signal-strike" id="signal-strike">Strike: --</div>
+              <div class="signal-premium" id="signal-premium">Premium: --</div>
+              <div class="signal-confidence" id="signal-confidence">Confidence: --</div>
+            </div>
+            <button id="auto-trade-btn" class="btn btn-success">⚡ Auto Trade</button>
+          </div>
+
+          <div class="card pnl-card">
+            <h3>P&L Summary</h3>
+            <div id="pnl-display">
+              <div class="pnl-total">
+                <span class="pnl-label">Total P&L</span>
+                <span class="pnl-value" id="total-pnl">₹0.00</span>
+              </div>
+              <div class="pnl-details">
+                <div><span>Realized</span><span id="realized-pnl">₹0.00</span></div>
+                <div><span>Unrealized</span><span id="unrealized-pnl">₹0.00</span></div>
+                <div><span>Open Trades</span><span id="open-trades-count">0</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Trades -->
+        <div class="card">
+          <div class="card-header-row">
+            <h3>Recent Trades</h3>
+            <button id="clear-trades-btn" class="btn btn-outline btn-sm">Clear All Trades</button>
+          </div>
+          <div class="table-container">
+            <table id="recent-trades-table">
+              <thead>
+                <tr>
+                  <th>Symbol</th><th>Type</th><th>Strike</th><th>Entry</th>
+                  <th>Qty</th><th>P&L</th><th>Status</th><th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="recent-trades-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="page-market" class="page">
+        <div class="card">
+          <h3>Nifty 50 Stocks - Live Momentum</h3>
+          <div class="filter-bar">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="bullish">Bullish</button>
+            <button class="filter-btn" data-filter="bearish">Bearish</button>
+            <button class="filter-btn" data-filter="neutral">Neutral</button>
+          </div>
+          <div class="table-container">
+            <table id="market-table">
+              <thead>
+                <tr>
+                  <th>Symbol</th><th>LTP</th><th>Change</th><th>Change %</th>
+                  <th>High</th><th>Low</th><th>Momentum</th>
+                </tr>
+              </thead>
+              <tbody id="market-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="page-trades" class="page">
+        <div class="card">
+          <div class="card-header-row">
+            <h3>Place Paper Trade</h3>
+          </div>
+          <form id="trade-form" class="trade-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Direction</label>
+                <select id="trade-direction">
+                  <option value="BUY">BUY</option>
+                  <option value="SELL">SELL</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Option Type</label>
+                <select id="trade-type">
+                  <option value="CE">Call (CE)</option>
+                  <option value="PE">Put (PE)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Strike Price</label>
+                <input type="number" id="trade-strike" placeholder="24200" step="50" />
+              </div>
+              <div class="form-group">
+                <label>Premium</label>
+                <input type="number" id="trade-premium" placeholder="150" step="0.5" />
+              </div>
+              <div class="form-group">
+                <label>Quantity</label>
+                <input type="number" id="trade-qty" value="50" step="25" />
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Place Order</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="card-header-row">
+            <h3>Trade History</h3>
+            <button class="btn btn-outline btn-sm" onclick="clearAllTrades()">Clear History</button>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Symbol</th><th>Direction</th><th>Entry</th><th>Exit</th>
+                  <th>Qty</th><th>P&L</th><th>Time</th>
+                </tr>
+              </thead>
+              <tbody id="history-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="page-positions" class="page">
+        <div class="card">
+          <div class="card-header-row">
+            <h3>Open Positions</h3>
+            <button class="btn btn-danger btn-sm" onclick="closeAllPositions()">Close All Positions</button>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Symbol</th><th>Type</th><th>Dir</th><th>Strike</th><th>Entry</th>
+                  <th>Current</th><th>Qty</th><th>P&L</th><th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="positions-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="page-wallet" class="page">
+        <div class="card-grid">
+          <div class="card stat-card">
+            <div class="stat-label">Balance</div>
+            <div class="stat-value" id="wallet-balance">₹1,00,000</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-label">Available</div>
+            <div class="stat-value" id="wallet-available">₹1,00,000</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-label">Margin Blocked</div>
+            <div class="stat-value" id="wallet-margin">₹0</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-label">Returns</div>
+            <div class="stat-value" id="wallet-returns">0%</div>
+          </div>
+        </div>
+
+        <div class="card-grid" style="grid-template-columns: 1fr 1fr;">
+          <div class="card">
+            <h3>Add Funds</h3>
+            <div class="fund-form">
+              <input type="number" id="add-fund-amount" placeholder="Enter amount" class="fund-input" />
+              <div class="fund-presets">
+                <button class="btn btn-outline btn-sm" onclick="setFundAmount(50000)">₹50K</button>
+                <button class="btn btn-outline btn-sm" onclick="setFundAmount(100000)">₹1L</button>
+                <button class="btn btn-outline btn-sm" onclick="setFundAmount(200000)">₹2L</button>
+                <button class="btn btn-outline btn-sm" onclick="setFundAmount(500000)">₹5L</button>
+              </div>
+              <button class="btn btn-success" onclick="addFunds()">+ Add Funds</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Account Actions</h3>
+            <div class="fund-form">
+              <p style="color:var(--text-secondary);font-size:13px;margin-bottom:12px;">
+                Reset will clear all trades, positions, and restore balance to ₹1,00,000.
+              </p>
+              <button class="btn btn-danger" onclick="resetAccount()" style="width:100%;">🗑 Reset Entire Account</button>
+              <button class="btn btn-outline" onclick="closeAllPositions()" style="width:100%;margin-top:8px;">Close All Open Positions</button>
+              <button class="btn btn-outline" onclick="clearAllTrades()" style="width:100%;margin-top:8px;">Clear Trade History</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Transaction History</h3>
+          <div id="wallet-transactions"></div>
+        </div>
+      </div>
+
+      <div id="page-analytics" class="page">
+        <div class="card-grid">
+          <div class="card stat-card">
+            <div class="stat-label">Total Trades</div>
+            <div class="stat-value" id="stat-total-trades">0</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-label">Win Rate</div>
+            <div class="stat-value" id="stat-win-rate">0%</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-label">Total P&L</div>
+            <div class="stat-value" id="stat-total-pnl">₹0</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-label">Returns</div>
+            <div class="stat-value" id="stat-returns">0%</div>
+          </div>
+        </div>
+        <div class="card-grid">
+          <div class="card stat-card">
+            <div class="stat-label">Avg Win</div>
+            <div class="stat-value green" id="stat-avg-win">₹0</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-label">Avg Loss</div>
+            <div class="stat-value red" id="stat-avg-loss">₹0</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-label">Max Win</div>
+            <div class="stat-value green" id="stat-max-win">₹0</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-label">Profit Factor</div>
+            <div class="stat-value" id="stat-profit-factor">N/A</div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Daily P&L</h3>
+          <div id="daily-pnl-container" class="daily-pnl"></div>
+        </div>
+      </div>
+
+      <!-- Auto-Trader Scheduler Page -->
+      <div id="page-scheduler" class="page">
+        <div class="card-grid">
+          <div class="card stat-card">
+            <div class="stat-label">Status</div>
+            <div class="stat-value" id="sched-status">Stopped</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-label">Market</div>
+            <div class="stat-value" id="sched-market">—</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-label">Trades Today</div>
+            <div class="stat-value" id="sched-trades-today">0</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-label">Open Positions</div>
+            <div class="stat-value" id="sched-open-pos">0</div>
+          </div>
+        </div>
+
+        <div class="card-grid" style="grid-template-columns: 1fr 1fr;">
+          <div class="card">
+            <h3>Controls</h3>
+            <div class="fund-form">
+              <p style="color:var(--text-secondary);font-size:13px;margin-bottom:8px;">
+                The auto-trader runs in the background on the server. It scans the market during trading hours
+                (9:15 AM – 3:30 PM IST) and places/closes orders automatically. No browser needed.
+              </p>
+              <button class="btn btn-success" id="sched-start-btn" onclick="startScheduler()" style="width:100%;">▶ Start Auto-Trader</button>
+              <button class="btn btn-danger" id="sched-stop-btn" onclick="stopScheduler()" style="width:100%;">⏹ Stop Auto-Trader</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Configuration</h3>
+            <div class="fund-form">
+              <div class="form-group">
+                <label>Scan Interval (seconds)</label>
+                <input type="number" id="sched-interval" value="60" min="10" max="300" class="fund-input" />
+              </div>
+              <div class="form-group">
+                <label>Max Trades Per Day</label>
+                <input type="number" id="sched-max-trades" value="10" min="1" max="50" class="fund-input" />
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="updateSchedulerConfig()" style="width:100%;margin-top:8px;">Save Config</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header-row">
+            <h3>Activity Log</h3>
+            <button class="btn btn-outline btn-sm" onclick="loadSchedulerLogs()">↻ Refresh</button>
+          </div>
+          <div id="sched-logs" style="max-height:400px;overflow-y:auto;font-family:monospace;font-size:12px;"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
