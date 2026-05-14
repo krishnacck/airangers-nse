@@ -64,7 +64,7 @@ function refreshCurrentPage() {
 
 // ===== AUTO REFRESH =====
 function startAutoRefresh() {
-  // Refresh every 2 seconds for real-time feel
+  // Refresh every 1 second for real-time data
   refreshInterval = setInterval(() => {
     loadNiftyIndex();
     loadWalletBar();
@@ -84,7 +84,7 @@ function startAutoRefresh() {
     } else if (currentPage === "analytics") {
       loadAnalytics();
     }
-  }, 2000);
+  }, 1000);
 }
 
 // ===== AUTH =====

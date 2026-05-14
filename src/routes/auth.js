@@ -187,6 +187,23 @@ router.post("/logout", (req, res) => {
 module.exports = router;
 module.exports.getToken = () => accessToken;
 module.exports.isSimulated = () => simulatedMode;
+module.exports.autoConnect = () => {
+  if (!accessToken) {
+    // If real credentials exist and token is set, use live mode
+    if (process.env.FYERS_ACCESS_TOKEN) {
+      accessToken = process.env.FYERS_ACCESS_TOKEN;
+      simulatedMode = false;
+      userProfile = { name: "Fyers User (Token)" };
+      console.log("🔐 Connected with pre-set access token (live mode)");
+    } else {
+      // Otherwise activate simulated mode
+      accessToken = "simulated_token";
+      simulatedMode = true;
+      userProfile = { name: "Paper Trader" };
+      console.log("📊 Connected in simulated mode");
+    }
+  }
+};
 module.exports.getFyersClient = () => {
   if (simulatedMode || !accessToken) return null;
   const client = initFyers();

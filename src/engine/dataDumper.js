@@ -363,8 +363,11 @@ function startSimulated() {
   isRunning = true;
   console.log("[DataDumper] Starting in simulated mode");
 
-  const niftyBase = 24200;
-  liveData.meta.atmStrike = estimateATM(niftyBase);
+  let niftyLtp = 24250;
+  const niftyOpen = 24250;
+  let niftyHigh = 24250;
+  let niftyLow = 24250;
+  liveData.meta.atmStrike = estimateATM(niftyLtp);
 
   const simInterval = setInterval(() => {
     if (!isRunning) {
@@ -372,20 +375,23 @@ function startSimulated() {
       return;
     }
 
-    const niftyLtp = niftyBase + (Math.random() - 0.5) * 300;
+    const drift = (Math.random() - 0.5) * 4;
+    niftyLtp = parseFloat((niftyLtp + drift).toFixed(2));
+    if (niftyLtp > niftyHigh) niftyHigh = niftyLtp;
+    if (niftyLtp < niftyLow) niftyLow = niftyLtp;
     const atm = estimateATM(niftyLtp);
     liveData.meta.atmStrike = atm;
 
     // Simulate index
     liveData.niftyIndex = {
       symbol: "NIFTY50",
-      ltp: parseFloat(niftyLtp.toFixed(2)),
-      change: parseFloat(((niftyLtp - niftyBase) * 0.5).toFixed(2)),
-      changePercent: parseFloat((((niftyLtp - niftyBase) / niftyBase) * 100).toFixed(2)),
-      open: niftyBase,
-      high: parseFloat((niftyLtp + 80).toFixed(2)),
-      low: parseFloat((niftyLtp - 80).toFixed(2)),
-      close: niftyBase,
+      ltp: niftyLtp,
+      change: parseFloat((niftyLtp - niftyOpen).toFixed(2)),
+      changePercent: parseFloat((((niftyLtp - niftyOpen) / niftyOpen) * 100).toFixed(2)),
+      open: niftyOpen,
+      high: niftyHigh,
+      low: niftyLow,
+      close: niftyOpen,
       timestamp: new Date().toISOString(),
     };
 
@@ -409,15 +415,19 @@ function startSimulated() {
       };
     }
 
-    // Simulate options ±10 strikes
+    // Simulate options ±10 strikes with realistic pricing
     liveData.options.CE = {};
     liveData.options.PE = {};
     for (let i = -STRIKE_LEVELS; i <= STRIKE_LEVELS; i++) {
       const strike = atm + i * STRIKE_INTERVAL;
-      const distFromATM = Math.abs(i) * STRIKE_INTERVAL;
+      const distFromATM = (niftyLtp - strike); // positive = ITM for CE
 
-      const cePremium = Math.max(5, 200 - distFromATM * 0.3 + (i > 0 ? -i * 10 : Math.abs(i) * 5) + Math.random() * 20);
-      const pePremium = Math.max(5, 200 - distFromATM * 0.3 + (i < 0 ? Math.abs(i) * 10 : -i * 5) + Math.random() * 20);
+      // Black-Scholes-like approximation for premium
+      const intrinsicCE = Math.max(0, niftyLtp - strike);
+      const intrinsicPE = Math.max(0, strike - niftyLtp);
+      const timeValue = 40 + Math.random() * 20; // base time value
+      const cePremium = parseFloat((intrinsicCE + timeValue * Math.exp(-Math.abs(i) * 0.15) + (Math.random() - 0.5) * 3).toFixed(2));
+      const pePremium = parseFloat((intrinsicPE + timeValue * Math.exp(-Math.abs(i) * 0.15) + (Math.random() - 0.5) * 3).toFixed(2));
 
       const ceSymbol = `NIFTY${strike}CE`;
       const peSymbol = `NIFTY${strike}PE`;
@@ -425,24 +435,24 @@ function startSimulated() {
       liveData.options.CE[ceSymbol] = {
         symbol: ceSymbol,
         strike,
-        ltp: parseFloat(cePremium.toFixed(2)),
-        change: parseFloat(((Math.random() - 0.5) * 10).toFixed(2)),
-        oi: Math.floor(Math.random() * 1000000),
-        volume: Math.floor(Math.random() * 500000),
-        bid: parseFloat((cePremium - 0.5).toFixed(2)),
-        ask: parseFloat((cePremium + 0.5).toFixed(2)),
+        ltp: Math.max(1, cePremium),
+        change: parseFloat(((Math.random() - 0.5) * 8).toFixed(2)),
+        oi: Math.floor(500000 + Math.random() * 2000000),
+        volume: Math.floor(100000 + Math.random() * 800000),
+        bid: Math.max(0.5, cePremium - 0.5),
+        ask: cePremium + 0.5,
         timestamp: new Date().toISOString(),
       };
 
       liveData.options.PE[peSymbol] = {
         symbol: peSymbol,
         strike,
-        ltp: parseFloat(pePremium.toFixed(2)),
-        change: parseFloat(((Math.random() - 0.5) * 10).toFixed(2)),
-        oi: Math.floor(Math.random() * 1000000),
-        volume: Math.floor(Math.random() * 500000),
-        bid: parseFloat((pePremium - 0.5).toFixed(2)),
-        ask: parseFloat((pePremium + 0.5).toFixed(2)),
+        ltp: Math.max(1, pePremium),
+        change: parseFloat(((Math.random() - 0.5) * 8).toFixed(2)),
+        oi: Math.floor(500000 + Math.random() * 2000000),
+        volume: Math.floor(100000 + Math.random() * 800000),
+        bid: Math.max(0.5, pePremium - 0.5),
+        ask: pePremium + 0.5,
         timestamp: new Date().toISOString(),
       };
     }

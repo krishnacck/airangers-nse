@@ -94,7 +94,9 @@ async function runTradeCycle() {
     config.lastTradeDate = today;
   }
 
-  if (!marketStatus.open) {
+  // In simulated mode, always trade (ignore market hours)
+  const isSimulated = !require("../routes/auth").getFyersClient();
+  if (!marketStatus.open && !isSimulated) {
     addLog("IDLE", `Market closed: ${marketStatus.reason}`);
     return;
   }

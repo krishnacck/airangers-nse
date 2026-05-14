@@ -25,6 +25,12 @@ class MomentumEngine {
     this.priceHistory = {}; // track recent ticks for pattern detection
     this.volumeBaseline = {}; // average volume per stock for anomaly detection
     this.lastAnalysisTime = null;
+    // Persistent Nifty LTP - moves realistically tick by tick
+    this.niftyLtp = 24250;
+    this.niftyOpen = 24250;
+    this.niftyHigh = 24250;
+    this.niftyLow = 24250;
+    this.tickCount = 0;
   }
 
   // ===== MAIN ANALYSIS =====
@@ -260,7 +266,7 @@ class MomentumEngine {
 
   // ===== OPTION RECOMMENDATION =====
   getOptionRecommendation(momentum) {
-    const niftyLtp = 24200 + (Math.random() - 0.5) * 200;
+    const niftyLtp = this.niftyLtp;
     const strikeInterval = 50;
     const nearestStrike = Math.round(niftyLtp / strikeInterval) * strikeInterval;
 
@@ -390,17 +396,26 @@ class MomentumEngine {
   }
 
   getSimulatedNiftyIndex() {
-    const base = 24200 + (Math.random() - 0.5) * 200;
-    const change = (Math.random() - 0.48) * 150;
+    // Move price realistically tick by tick (random walk with mean reversion)
+    this.tickCount++;
+    const drift = (Math.random() - 0.5) * 3; // ±1.5 points per tick
+    const meanReversion = (this.niftyOpen - this.niftyLtp) * 0.002;
+    this.niftyLtp = parseFloat((this.niftyLtp + drift + meanReversion).toFixed(2));
+
+    if (this.niftyLtp > this.niftyHigh) this.niftyHigh = this.niftyLtp;
+    if (this.niftyLtp < this.niftyLow) this.niftyLow = this.niftyLtp;
+
+    const change = this.niftyLtp - this.niftyOpen;
+
     return {
       symbol: "NIFTY 50",
-      ltp: base.toFixed(2),
+      ltp: this.niftyLtp.toFixed(2),
       change: change.toFixed(2),
-      changePercent: ((change / base) * 100).toFixed(2),
-      high: (base + Math.abs(change) + 50).toFixed(2),
-      low: (base - Math.abs(change) - 50).toFixed(2),
-      open: (base - change / 2).toFixed(2),
-      close: (base - change).toFixed(2),
+      changePercent: ((change / this.niftyOpen) * 100).toFixed(2),
+      high: this.niftyHigh.toFixed(2),
+      low: this.niftyLow.toFixed(2),
+      open: this.niftyOpen.toFixed(2),
+      close: this.niftyOpen.toFixed(2),
     };
   }
 }

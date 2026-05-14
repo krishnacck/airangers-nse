@@ -31,37 +31,27 @@ app.get("/", (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`AIRangers running on http://localhost:${PORT}`);
-  console.log(`Auto-trader available at /api/scheduler/start`);
-  console.log(`Market hours check: /api/scheduler/market-hours`);
 
-  // Auto-connect in simulated mode so scheduler can trade immediately
-  if (!fyersAuth.getToken()) {
-    const http = require("http");
-    const req = http.request({ hostname: "localhost", port: PORT, path: "/auth/simulate", method: "POST" });
-    req.end();
-  }
+  // Auto-connect: activate simulated mode directly (no HTTP needed)
+  fyersAuth.autoConnect();
 
-  // Auto-start scheduler if configured
+  // Auto-start scheduler
   if (process.env.AUTO_START_SCHEDULER === "true") {
-    setTimeout(() => {
-      const scheduler = require("./src/engine/autoTradeScheduler");
-      scheduler.startScheduler(() => fyersAuth.getFyersClient());
-      console.log("⚡ Auto-trader started on boot (scan every " + (process.env.SCAN_INTERVAL_SECONDS || 15) + "s)");
-    }, 1000);
+    const scheduler = require("./src/engine/autoTradeScheduler");
+    scheduler.startScheduler(() => fyersAuth.getFyersClient());
+    console.log(`⚡ Auto-trader started (scan every ${process.env.SCAN_INTERVAL_SECONDS || 15}s)`);
   }
 
   // Auto-start data dumper
   if (process.env.AUTO_START_DATADUMP !== "false") {
-    setTimeout(() => {
-      const dataDumper = require("./src/engine/dataDumper");
-      const client = fyersAuth.getFyersClient();
-      if (client && !fyersAuth.isSimulated()) {
-        dataDumper.startPolling(client);
-        console.log("📡 Data dumper started (live polling)");
-      } else {
-        dataDumper.startSimulated();
-        console.log("📡 Data dumper started (simulated)");
-      }
-    }, 1500);
+    const dataDumper = require("./src/engine/dataDumper");
+    const client = fyersAuth.getFyersClient();
+    if (client && !fyersAuth.isSimulated()) {
+      dataDumper.startPolling(client);
+      console.log("📡 Data dumper started (live)");
+    } else {
+      dataDumper.startSimulated();
+      console.log("📡 Data dumper started (simulated)");
+    }
   }
 });
