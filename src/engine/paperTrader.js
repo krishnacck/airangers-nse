@@ -11,13 +11,13 @@ let wallet = {
 let autoTradeEnabled = false;
 let autoTradeInterval = null;
 let autoTradeConfig = {
-  maxOpenPositions: 3,
+  maxOpenPositions: 5,
   lotSize: 50,
   stopLossPercent: 2.5,
   targetPercent: 4,
   trailingSL: true,
-  minMomentumScore: 12,
-  autoCloseMinutes: 30, // auto close after 30 min if no SL/target hit
+  minMomentumScore: 8,
+  autoCloseMinutes: 20, // auto close after 20 min if no SL/target hit
 };
 
 class PaperTrader {

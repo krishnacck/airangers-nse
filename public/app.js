@@ -64,10 +64,15 @@ function refreshCurrentPage() {
 
 // ===== AUTO REFRESH =====
 function startAutoRefresh() {
+  // Refresh every 2 seconds for real-time feel
   refreshInterval = setInterval(() => {
     loadNiftyIndex();
+    loadWalletBar();
     if (currentPage === "dashboard") loadDashboard();
-  }, 10000);
+    else if (currentPage === "livedata") loadLiveData();
+    else if (currentPage === "positions") loadPositions();
+    else if (currentPage === "scheduler") loadScheduler();
+  }, 2000);
 }
 
 // ===== AUTH =====

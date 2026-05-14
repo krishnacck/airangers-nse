@@ -21,14 +21,14 @@ let logs = [];
 
 const config = {
   enabled: false,
-  intervalSeconds: 60, // check every 60 seconds
+  intervalSeconds: parseInt(process.env.SCAN_INTERVAL_SECONDS) || 15,
   marketOpenHour: 9,
   marketOpenMinute: 15,
   marketCloseHour: 15,
   marketCloseMinute: 30,
-  preMarketMinutes: 5, // start analyzing 5 min before open
-  autoCloseBeforeMarketClose: 5, // close all positions 5 min before close
-  maxTradesPerDay: 10,
+  preMarketMinutes: 5,
+  autoCloseBeforeMarketClose: parseInt(process.env.AUTO_CLOSE_BEFORE_CLOSE_MINUTES) || 5,
+  maxTradesPerDay: parseInt(process.env.MAX_TRADES_PER_DAY) || 10,
   tradesToday: 0,
   lastTradeDate: null,
 };
