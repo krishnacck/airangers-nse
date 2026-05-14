@@ -36,6 +36,9 @@
         <a href="#" class="nav-item" data-page="scheduler">
           <span class="nav-icon">🤖</span> Auto-Trader
         </a>
+        <a href="#" class="nav-item" data-page="livedata">
+          <span class="nav-icon">📡</span> Live Data
+        </a>
       </nav>
       <div class="sidebar-footer">
         <div id="auth-status" class="auth-badge offline">● Simulated Mode</div>
@@ -402,6 +405,73 @@
             <button class="btn btn-outline btn-sm" onclick="loadSchedulerLogs()">↻ Refresh</button>
           </div>
           <div id="sched-logs" style="max-height:400px;overflow-y:auto;font-family:monospace;font-size:12px;"></div>
+        </div>
+      </div>
+
+      <!-- Live Data / Options Chain Page -->
+      <div id="page-livedata" class="page">
+        <div class="card-grid">
+          <div class="card stat-card">
+            <div class="stat-label">Nifty LTP</div>
+            <div class="stat-value" id="ld-nifty-ltp">—</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-label">ATM Strike</div>
+            <div class="stat-value" id="ld-atm-strike">—</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-label">Data Feed</div>
+            <div class="stat-value" id="ld-feed-status">—</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-label">Last Update</div>
+            <div class="stat-value" id="ld-last-update" style="font-size:14px;">—</div>
+          </div>
+        </div>
+
+        <!-- Options Chain Table -->
+        <div class="card">
+          <div class="card-header-row">
+            <h3>Options Chain (±10 Strikes)</h3>
+            <button class="btn btn-outline btn-sm" onclick="loadLiveData()">↻ Refresh</button>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>CE OI</th><th>CE Vol</th><th>CE LTP</th><th>CE Chg</th>
+                  <th style="background:var(--accent);color:white;text-align:center;">Strike</th>
+                  <th>PE Chg</th><th>PE LTP</th><th>PE Vol</th><th>PE OI</th>
+                </tr>
+              </thead>
+              <tbody id="ld-options-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Top Movers from Nifty 50 -->
+        <div class="card-grid" style="grid-template-columns:1fr 1fr;">
+          <div class="card">
+            <h3 style="color:var(--green);">Top Gainers</h3>
+            <div id="ld-gainers"></div>
+          </div>
+          <div class="card">
+            <h3 style="color:var(--red);">Top Losers</h3>
+            <div id="ld-losers"></div>
+          </div>
+        </div>
+
+        <!-- Data Dump Controls -->
+        <div class="card">
+          <div class="card-header-row">
+            <h3>Data Dump Controls</h3>
+            <span id="ld-dump-status" style="font-size:12px;color:var(--text-secondary);"></span>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-success btn-sm" onclick="startDataDump()">▶ Start Dump</button>
+            <button class="btn btn-danger btn-sm" onclick="stopDataDump()">⏹ Stop Dump</button>
+            <button class="btn btn-outline btn-sm" onclick="downloadLatestDump()">⬇ Download Latest JSON</button>
+          </div>
         </div>
       </div>
     </main>

@@ -43,6 +43,7 @@ function switchPage(page) {
     wallet: "Wallet & Funds",
     analytics: "Analytics",
     scheduler: "Auto-Trader",
+    livedata: "Live Data & Options",
   };
   document.getElementById("page-title").textContent = titles[page] || "Dashboard";
   refreshCurrentPage();
@@ -57,6 +58,7 @@ function refreshCurrentPage() {
     case "wallet": loadWallet(); break;
     case "analytics": loadAnalytics(); break;
     case "scheduler": loadScheduler(); break;
+    case "livedata": loadLiveData(); break;
   }
 }
 
@@ -770,6 +772,152 @@ window.startScheduler = startScheduler;
 window.stopScheduler = stopScheduler;
 window.updateSchedulerConfig = updateSchedulerConfig;
 window.loadSchedulerLogs = loadSchedulerLogs;
+window.startDataDump = startDataDump;
+window.stopDataDump = stopDataDump;
+window.downloadLatestDump = downloadLatestDump;
+window.loadLiveData = loadLiveData;
+
+// ===== LIVE DATA / OPTIONS CHAIN =====
+async function loadLiveData() {
+  try {
+    const res = await fetch(`${API}/api/datadump/latest`);
+    const data = await res.json();
+
+    // Nifty LTP
+    const nifty = data.niftyIndex;
+    if (nifty) {
+      const ltpEl = document.getElementById("ld-nifty-ltp");
+      ltpEl.textContent = `₹${parseFloat(nifty.ltp).toLocaleString()}`;
+      ltpEl.style.color = parseFloat(nifty.change) >= 0 ? "var(--green)" : "var(--red)";
+    }
+
+    // ATM Strike
+    document.getElementById("ld-atm-strike").textContent = data.meta?.atmStrike || "—";
+
+    // Feed status
+    const statusRes = await fetch(`${API}/api/datadump/status`);
+    const status = await statusRes.json();
+    const feedEl = document.getElementById("ld-feed-status");
+    feedEl.textContent = status.isRunning ? "Active" : "Stopped";
+    feedEl.style.color = status.isRunning ? "var(--green)" : "var(--red)";
+    document.getElementById("ld-dump-status").textContent = status.isRunning
+      ? `Stocks: ${status.stockCount} | CE: ${status.ceStrikes} | PE: ${status.peStrikes}`
+      : "Not running";
+
+    // Last update
+    if (data.timestamp) {
+      document.getElementById("ld-last-update").textContent = new Date(data.timestamp).toLocaleTimeString();
+    }
+
+    // Options chain
+    renderOptionsChain(data);
+
+    // Top movers
+    renderTopMovers(data.stocks);
+  } catch (e) {
+    console.error("Live data error:", e);
+  }
+}
+
+function renderOptionsChain(data) {
+  const tbody = document.getElementById("ld-options-body");
+  const atm = data.meta?.atmStrike;
+  if (!atm) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--text-secondary)">No options data. Start data dump first.</td></tr>`;
+    return;
+  }
+
+  const rows = [];
+  for (let i = -10; i <= 10; i++) {
+    const strike = atm + i * 50;
+
+    // Find CE and PE data for this strike
+    const ceKey = Object.keys(data.options?.CE || {}).find((k) => k.includes(String(strike)) && k.includes("CE"));
+    const peKey = Object.keys(data.options?.PE || {}).find((k) => k.includes(String(strike)) && k.includes("PE"));
+
+    const ce = ceKey ? data.options.CE[ceKey] : null;
+    const pe = peKey ? data.options.PE[peKey] : null;
+
+    const isATM = i === 0;
+    const rowStyle = isATM ? "background:rgba(99,102,241,0.1);" : "";
+
+    rows.push(`
+      <tr style="${rowStyle}">
+        <td style="text-align:right;">${ce ? formatOI(ce.oi) : "—"}</td>
+        <td style="text-align:right;">${ce ? formatVol(ce.volume) : "—"}</td>
+        <td style="text-align:right;font-weight:600;color:var(--green);">${ce ? `₹${parseFloat(ce.ltp).toFixed(2)}` : "—"}</td>
+        <td style="text-align:right;" class="${ce && parseFloat(ce.change) >= 0 ? "green" : "red"}">${ce ? parseFloat(ce.change).toFixed(2) : "—"}</td>
+        <td style="text-align:center;font-weight:700;${isATM ? "color:var(--accent);" : ""}">${strike}${isATM ? " ⬅" : ""}</td>
+        <td class="${pe && parseFloat(pe.change) >= 0 ? "green" : "red"}">${pe ? parseFloat(pe.change).toFixed(2) : "—"}</td>
+        <td style="font-weight:600;color:var(--red);">${pe ? `₹${parseFloat(pe.ltp).toFixed(2)}` : "—"}</td>
+        <td>${pe ? formatVol(pe.volume) : "—"}</td>
+        <td>${pe ? formatOI(pe.oi) : "—"}</td>
+      </tr>
+    `);
+  }
+
+  tbody.innerHTML = rows.join("");
+}
+
+function renderTopMovers(stocks) {
+  if (!stocks || !Object.keys(stocks).length) {
+    document.getElementById("ld-gainers").innerHTML = `<p style="color:var(--text-secondary);font-size:13px;">No data</p>`;
+    document.getElementById("ld-losers").innerHTML = `<p style="color:var(--text-secondary);font-size:13px;">No data</p>`;
+    return;
+  }
+
+  const sorted = Object.values(stocks).sort((a, b) => parseFloat(b.changePercent) - parseFloat(a.changePercent));
+  const gainers = sorted.slice(0, 5);
+  const losers = sorted.slice(-5).reverse();
+
+  document.getElementById("ld-gainers").innerHTML = gainers.map((s) => `
+    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;">
+      <span style="font-weight:600;">${s.symbol}</span>
+      <span>₹${parseFloat(s.ltp).toLocaleString()}</span>
+      <span class="green">+${parseFloat(s.changePercent).toFixed(2)}%</span>
+    </div>
+  `).join("");
+
+  document.getElementById("ld-losers").innerHTML = losers.map((s) => `
+    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;">
+      <span style="font-weight:600;">${s.symbol}</span>
+      <span>₹${parseFloat(s.ltp).toLocaleString()}</span>
+      <span class="red">${parseFloat(s.changePercent).toFixed(2)}%</span>
+    </div>
+  `).join("");
+}
+
+function formatOI(val) {
+  if (!val) return "—";
+  if (val >= 1000000) return (val / 1000000).toFixed(1) + "M";
+  if (val >= 1000) return (val / 1000).toFixed(0) + "K";
+  return val;
+}
+
+function formatVol(val) {
+  if (!val) return "—";
+  if (val >= 1000000) return (val / 1000000).toFixed(1) + "M";
+  if (val >= 1000) return (val / 1000).toFixed(0) + "K";
+  return val;
+}
+
+async function startDataDump() {
+  const res = await fetch(`${API}/api/datadump/start`, { method: "POST" });
+  const data = await res.json();
+  showNotification(data.message || data.error || "Started", data.success ? "success" : "error");
+  setTimeout(loadLiveData, 2000);
+}
+
+async function stopDataDump() {
+  const res = await fetch(`${API}/api/datadump/stop`, { method: "POST" });
+  const data = await res.json();
+  showNotification(data.message || "Stopped", "info");
+  loadLiveData();
+}
+
+function downloadLatestDump() {
+  window.open(`${API}/api/datadump/file/latest`, "_blank");
+}
 
 // ===== SCHEDULER =====
 async function loadScheduler() {
