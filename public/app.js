@@ -68,10 +68,22 @@ function startAutoRefresh() {
   refreshInterval = setInterval(() => {
     loadNiftyIndex();
     loadWalletBar();
-    if (currentPage === "dashboard") loadDashboard();
-    else if (currentPage === "livedata") loadLiveData();
-    else if (currentPage === "positions") loadPositions();
-    else if (currentPage === "scheduler") loadScheduler();
+    loadPnL();
+    if (currentPage === "dashboard") {
+      loadMomentum();
+      loadSignal();
+      loadRecentTrades();
+    } else if (currentPage === "livedata") {
+      loadLiveData();
+    } else if (currentPage === "positions") {
+      loadPositions();
+    } else if (currentPage === "trades") {
+      loadTradeHistory();
+    } else if (currentPage === "scheduler") {
+      loadScheduler();
+    } else if (currentPage === "analytics") {
+      loadAnalytics();
+    }
   }, 2000);
 }
 
@@ -424,18 +436,27 @@ async function loadRecentTrades() {
     tbody.innerHTML = trades
       .slice(-10)
       .reverse()
-      .map((t) => `
-        <tr>
-          <td><strong>${t.symbol}</strong></td>
-          <td><span class="badge ${t.type === "CE" ? "badge-bullish" : "badge-bearish"}">${t.direction} ${t.type}</span></td>
-          <td>${t.strikePrice}</td>
-          <td>₹${parseFloat(t.entryPremium).toFixed(2)}</td>
-          <td>${t.quantity}</td>
-          <td class="${(t.pnl || 0) >= 0 ? "green" : "red"}">₹${(t.pnl || 0).toFixed(2)}</td>
-          <td><span class="badge ${t.status === "open" ? "badge-open" : "badge-closed"}">${t.status}</span></td>
-          <td>${t.status === "open" ? `<button class="btn btn-danger btn-sm" onclick="closeTrade('${t.id}')">Close</button>` : "—"}</td>
-        </tr>
-      `)
+      .map((t) => {
+        // Calculate live P&L for open trades
+        let pnl = t.pnl || 0;
+        if (t.status === "open" && t.currentPremium) {
+          pnl = t.direction === "BUY"
+            ? (t.currentPremium - t.entryPremium) * t.quantity
+            : (t.entryPremium - t.currentPremium) * t.quantity;
+        }
+        return `
+          <tr>
+            <td><strong>${t.symbol}</strong></td>
+            <td><span class="badge ${t.type === "CE" ? "badge-bullish" : "badge-bearish"}">${t.direction} ${t.type}</span></td>
+            <td>${t.strikePrice}</td>
+            <td>₹${parseFloat(t.entryPremium).toFixed(2)}</td>
+            <td>${t.quantity}</td>
+            <td class="${pnl >= 0 ? "green" : "red"}">₹${pnl.toFixed(2)}</td>
+            <td><span class="badge ${t.status === "open" ? "badge-open" : "badge-closed"}">${t.status}</span></td>
+            <td>${t.status === "open" ? `<button class="btn btn-danger btn-sm" onclick="closeTrade('${t.id}')">Close</button>` : "—"}</td>
+          </tr>
+        `;
+      })
       .join("");
   } catch (e) {}
 }
@@ -600,9 +621,11 @@ async function loadPositions() {
 
     tbody.innerHTML = positions
       .map((p) => {
+        const current = parseFloat(p.currentPremium) || parseFloat(p.entryPremium);
         const pnl = p.direction === "BUY"
-          ? (p.currentPremium - p.entryPremium) * p.quantity
-          : (p.entryPremium - p.currentPremium) * p.quantity;
+          ? (current - p.entryPremium) * p.quantity
+          : (p.entryPremium - current) * p.quantity;
+        const pnlPercent = ((pnl / (p.entryPremium * p.quantity)) * 100).toFixed(1);
         return `
           <tr>
             <td><strong>${p.symbol}</strong></td>
@@ -610,9 +633,9 @@ async function loadPositions() {
             <td>${p.direction}</td>
             <td>${p.strikePrice}</td>
             <td>₹${parseFloat(p.entryPremium).toFixed(2)}</td>
-            <td>₹${parseFloat(p.currentPremium).toFixed(2)}</td>
+            <td style="font-weight:600;">₹${current.toFixed(2)}</td>
             <td>${p.quantity}</td>
-            <td class="${pnl >= 0 ? "green" : "red"}">₹${pnl.toFixed(2)}</td>
+            <td class="${pnl >= 0 ? "green" : "red"}" style="font-weight:700;">₹${pnl.toFixed(2)} (${pnlPercent}%)</td>
             <td><button class="btn btn-danger btn-sm" onclick="closeTrade('${p.id}')">Close</button></td>
           </tr>
         `;
