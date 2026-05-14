@@ -136,8 +136,9 @@ class PaperTrader {
     const hftSuspects = momentum.hftSuspects || 0;
     const openPositions = trades.filter((t) => t.status === "open");
 
-    // Check if we should close existing positions first
-    const closedTrades = this._checkAutoClose(openPositions);
+    // STEP 1: Scan existing positions and decide hold/close
+    const positionActions = this._scanExistingPositions(openPositions, score, niftyLtp);
+    const closedTrades = positionActions.closed;
 
     // SAFETY: Block trading during high manipulation risk
     if (manipulationRisk === "HIGH") {
@@ -165,7 +166,23 @@ class PaperTrader {
       };
     }
 
-    if (openPositions.length >= autoTradeConfig.maxOpenPositions) {
+    // STEP 2: Check if we already have a position in the same direction
+    const currentOpenPositions = trades.filter((t) => t.status === "open");
+    const newType = score > 0 ? "CE" : "PE";
+    const sameDirectionOpen = currentOpenPositions.filter((t) => t.type === newType);
+
+    // Don't stack same-direction trades — hold existing instead
+    if (sameDirectionOpen.length > 0) {
+      return {
+        message: `Holding ${sameDirectionOpen.length} existing ${newType} position(s). Signal confirms direction.`,
+        trade: null,
+        closedTrades,
+        autoEnabled: autoTradeEnabled,
+        holding: true,
+      };
+    }
+
+    if (currentOpenPositions.length >= autoTradeConfig.maxOpenPositions) {
       return {
         message: `Max positions (${autoTradeConfig.maxOpenPositions}) reached. Monitoring existing trades.`,
         trade: null,
@@ -174,12 +191,12 @@ class PaperTrader {
       };
     }
 
+    // STEP 3: Place new trade
     const ltp = parseFloat(niftyLtp) || 24200;
     const strikeInterval = 50;
     const nearestStrike = Math.round(ltp / strikeInterval) * strikeInterval;
 
-    // Determine direction based on volume-confirmed signals
-    const type = score > 0 ? "CE" : "PE";
+    const type = newType;
     const direction = "BUY";
     const strike = type === "CE" ? nearestStrike + 50 : nearestStrike - 50;
 
@@ -245,6 +262,86 @@ class PaperTrader {
       }
     }
     return closed;
+  }
+
+  // Scan existing positions before placing new order
+  // Decides: close conflicting positions, hold aligned ones, or do nothing
+  _scanExistingPositions(openPositions, momentumScore, niftyLtp) {
+    const closed = [];
+    const held = [];
+    const newDirection = momentumScore > 0 ? "CE" : "PE";
+
+    for (const trade of openPositions) {
+      // Update current premium
+      const elapsed = (Date.now() - new Date(trade.entryTime).getTime()) / 60000;
+      const drift = (Math.random() - 0.45) * 0.03 * Math.sqrt(Math.max(elapsed, 0.5));
+      trade.currentPremium = parseFloat((trade.entryPremium * (1 + drift)).toFixed(2));
+
+      const pnl = trade.direction === "BUY"
+        ? (trade.currentPremium - trade.entryPremium) * trade.quantity
+        : (trade.entryPremium - trade.currentPremium) * trade.quantity;
+      const pnlPercent = (pnl / (trade.entryPremium * trade.quantity)) * 100;
+
+      // Rule 1: SL/Target hit — always close
+      if (trade.direction === "BUY" && trade.currentPremium <= trade.stopLoss) {
+        const result = this.closeTrade(trade.id, trade.stopLoss);
+        result.closeReason = "STOP_LOSS";
+        closed.push(result);
+        continue;
+      }
+      if (trade.direction === "BUY" && trade.currentPremium >= trade.target) {
+        const result = this.closeTrade(trade.id, trade.target);
+        result.closeReason = "TARGET_HIT";
+        closed.push(result);
+        continue;
+      }
+
+      // Rule 2: Time expiry — close if held too long
+      if (elapsed > autoTradeConfig.autoCloseMinutes) {
+        const result = this.closeTrade(trade.id, trade.currentPremium);
+        result.closeReason = "TIME_EXPIRY";
+        closed.push(result);
+        continue;
+      }
+
+      // Rule 3: Momentum reversal — close if position is AGAINST new momentum
+      // e.g. holding CE but momentum flipped bearish
+      if (trade.type !== newDirection && Math.abs(momentumScore) > autoTradeConfig.minMomentumScore) {
+        // Only close if in loss or marginal profit (don't cut big winners)
+        if (pnlPercent < 1.5) {
+          const result = this.closeTrade(trade.id, trade.currentPremium);
+          result.closeReason = "MOMENTUM_REVERSAL";
+          closed.push(result);
+          continue;
+        }
+      }
+
+      // Rule 4: Losing position with weakening momentum — cut early
+      if (pnlPercent < -1.5 && Math.abs(momentumScore) < 5) {
+        // Momentum is weak and position is losing — exit to preserve capital
+        const result = this.closeTrade(trade.id, trade.currentPremium);
+        result.closeReason = "WEAK_MOMENTUM_LOSS";
+        closed.push(result);
+        continue;
+      }
+
+      // Rule 5: Position aligned with momentum and profitable — HOLD
+      if (trade.type === newDirection && pnl >= 0) {
+        held.push({ id: trade.id, symbol: trade.symbol, pnl: pnl.toFixed(2), reason: "ALIGNED_PROFITABLE" });
+        continue;
+      }
+
+      // Rule 6: Position aligned but in small loss — HOLD (give it time)
+      if (trade.type === newDirection && pnlPercent > -1.5) {
+        held.push({ id: trade.id, symbol: trade.symbol, pnl: pnl.toFixed(2), reason: "ALIGNED_HOLDING" });
+        continue;
+      }
+
+      // Default: hold
+      held.push({ id: trade.id, symbol: trade.symbol, pnl: pnl.toFixed(2), reason: "DEFAULT_HOLD" });
+    }
+
+    return { closed, held };
   }
 
   _simulateExit(trade) {
